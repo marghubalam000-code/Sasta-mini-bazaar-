@@ -1,0 +1,145 @@
+@import "tailwindcss";
+
+@layer base {
+  body {
+    font-family: 'Plus Jakarta Sans', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+  }
+}
+
+/* Print Specific Rules for Receipts and Reports */
+@media print {
+  /* When receipt modal is open: ONLY the bill prints, suppressing root application entirely */
+  body.receipt-modal-open {
+    width: 80mm !important;
+    max-width: 80mm !important;
+    min-width: 80mm !important;
+    margin: 0 auto !important;
+    padding: 0 !important;
+    background-color: #ffffff !important;
+    color: #000000 !important;
+    overflow: visible !important;
+    height: auto !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  body.receipt-modal-open #root,
+  body.receipt-modal-open > *:not(#receipt-modal-portal) {
+    display: none !important;
+    visibility: hidden !important;
+  }
+
+  /* Thermal 80mm Paper Roll (3.15 inch wide) */
+  @page {
+    size: 80mm auto;
+    margin: 0mm !important;
+  }
+
+  /* Hide navigation, toolbars, buttons during print */
+  header, nav, button, input, .print\:hidden {
+    display: none !important;
+    visibility: hidden !important;
+  }
+
+  /* Receipt Modal Container Isolation */
+  #receipt-modal-portal {
+    display: block !important;
+    position: static !important;
+    width: 80mm !important;
+    max-width: 80mm !important;
+    min-width: 80mm !important;
+    margin: 0 auto !important;
+    padding: 0 !important;
+    background: #ffffff !important;
+  }
+
+  #receipt-modal-backdrop {
+    position: static !important;
+    background: transparent !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    display: block !important;
+    height: auto !important;
+    width: 80mm !important;
+    max-width: 80mm !important;
+    min-width: 80mm !important;
+    box-shadow: none !important;
+  }
+
+  #receipt-modal-card-container {
+    border: none !important;
+    box-shadow: none !important;
+    border-radius: 0 !important;
+    max-height: none !important;
+    width: 80mm !important;
+    max-width: 80mm !important;
+    min-width: 80mm !important;
+    margin: 0 auto !important;
+    padding: 0 !important;
+    background: #ffffff !important;
+  }
+
+  #receipt-preview-scroll-container {
+    padding: 0 !important;
+    margin: 0 !important;
+    background: #ffffff !important;
+    width: 80mm !important;
+    max-width: 80mm !important;
+    min-width: 80mm !important;
+    display: block !important;
+  }
+
+  /* Exact 80mm (approx 3.15 inch) Thermal Receipt Print Card */
+  #printable-receipt-card {
+    display: block !important;
+    visibility: visible !important;
+    width: 80mm !important;
+    max-width: 80mm !important;
+    min-width: 80mm !important;
+    margin: 0 auto !important;
+    padding: 2mm 3mm 4mm 3mm !important;
+    box-sizing: border-box !important;
+    border: none !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+    background-color: #ffffff !important;
+    color: #000000 !important;
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+  }
+
+  #printable-receipt-card * {
+    visibility: visible !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+}
+
+/* Custom scrollbar for POS item catalogue */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 9999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+

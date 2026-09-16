@@ -1,0 +1,129 @@
+{
+  "entities": {
+    "user": {
+      "title": "User",
+      "description": "User profile with role-based access for Admin and Cashier",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "email": { "type": "string" },
+        "name": { "type": "string" },
+        "role": { "type": "string", "enum": ["admin", "cashier"] },
+        "pin": { "type": "string" },
+        "avatarColor": { "type": "string" },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["id", "name", "role"]
+    },
+    "product": {
+      "title": "Product",
+      "description": "Supermarket retail product item in inventory",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "barcode": { "type": "string" },
+        "sku": { "type": "string" },
+        "name": { "type": "string" },
+        "nameHi": { "type": "string" },
+        "category": { "type": "string" },
+        "costPrice": { "type": "number" },
+        "sellingPrice": { "type": "number" },
+        "stock": { "type": "number" },
+        "minStockAlert": { "type": "number" },
+        "unit": { "type": "string" },
+        "taxRate": { "type": "number" },
+        "rackLocation": { "type": "string" },
+        "brand": { "type": "string" },
+        "updatedAt": { "type": "string" }
+      },
+      "required": ["id", "barcode", "name", "sellingPrice", "stock"]
+    },
+    "sale": {
+      "title": "Sale Receipt",
+      "description": "Completed customer POS transaction record",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "invoiceNumber": { "type": "string" },
+        "date": { "type": "string" },
+        "cashierId": { "type": "string" },
+        "cashierName": { "type": "string" },
+        "customerName": { "type": "string" },
+        "customerPhone": { "type": "string" },
+        "items": { "type": "array" },
+        "subtotal": { "type": "number" },
+        "totalDiscount": { "type": "number" },
+        "totalTax": { "type": "number" },
+        "grandTotal": { "type": "number" },
+        "paymentMethod": { "type": "string" },
+        "paymentStatus": { "type": "string" }
+      },
+      "required": ["id", "invoiceNumber", "date", "grandTotal", "paymentMethod"]
+    },
+    "setting": {
+      "title": "Store Settings",
+      "description": "Retail store branding, tax, and UPI payment configurations",
+      "type": "object",
+      "properties": {
+        "mallName": { "type": "string" },
+        "tagline": { "type": "string" },
+        "address": { "type": "string" },
+        "cityStateZip": { "type": "string" },
+        "phone": { "type": "string" },
+        "email": { "type": "string" },
+        "gstin": { "type": "string" },
+        "currencySymbol": { "type": "string" },
+        "receiptFooter": { "type": "string" },
+        "receiptTheme": { "type": "string" },
+        "taxName": { "type": "string" },
+        "upiId": { "type": "string" },
+        "upiPayeeName": { "type": "string" },
+        "showUpiOnReceipt": { "type": "boolean" },
+        "upiQrMode": { "type": "string" },
+        "upiQrCustomImage": { "type": "string" }
+      },
+      "required": ["mallName", "currencySymbol", "upiId"]
+    },
+    "authorizedUser": {
+      "title": "Authorized User Email",
+      "description": "Whitelisted email address allowed to access the POS & Admin Portal",
+      "type": "object",
+      "properties": {
+        "email": { "type": "string" },
+        "addedBy": { "type": "string" },
+        "addedAt": { "type": "string" },
+        "role": { "type": "string" },
+        "name": { "type": "string" },
+        "status": { "type": "string" }
+      },
+      "required": ["email", "addedBy", "addedAt"]
+    }
+  },
+  "collections": {
+    "authorized_users": {
+      "path": "authorized_users/{userEmail}",
+      "entity": "authorizedUser",
+      "description": "Collection of whitelisted email addresses permitted to sign in"
+    },
+    "users": {
+      "path": "users/{userId}",
+      "entity": "user",
+      "description": "Collection of staff and administrators"
+    },
+    "products": {
+      "path": "products/{productId}",
+      "entity": "product",
+      "description": "Collection of retail inventory products"
+    },
+    "sales": {
+      "path": "sales/{saleId}",
+      "entity": "sale",
+      "description": "Collection of sales invoices"
+    },
+    "settings": {
+      "path": "settings/{settingId}",
+      "entity": "setting",
+      "description": "Store settings document"
+    }
+  }
+}

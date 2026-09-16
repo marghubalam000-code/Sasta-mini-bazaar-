@@ -1,0 +1,85 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Helper functions enforcing strict authentication and whitelist authorization
+    function isSignedIn() {
+      return request.auth != null && request.auth.token.email != null;
+    }
+
+    function isMasterAdmin() {
+      return isSignedIn() && request.auth.token.email.lower() == 'marghubalam000@gmail.com';
+    }
+
+    function isAuthorizedUser() {
+      return isMasterAdmin() || (isSignedIn() && exists(/databases/$(database)/documents/authorized_users/$(request.auth.token.email.lower())));
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() > 0 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-\\.\\@]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    // Default deny all unmatched collections
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Whitelisted / Authorized Users Collection: Managed exclusively by Master Admin
+    match /authorized_users/{userEmail} {
+      // User can check their own authorization, or master admin can view all
+      allow get: if isSignedIn() && (request.auth.token.email.lower() == userEmail.lower() || isMasterAdmin());
+      allow list: if isMasterAdmin() || isAuthorizedUser();
+      // Only master admin (marghubalam000@gmail.com) can add or update authorized email entries
+      allow create, update: if isMasterAdmin() 
+        && isValidId(userEmail)
+        && incoming().email is string 
+        && incoming().email.lower() == userEmail.lower()
+        && incoming().email.size() > 0 
+        && incoming().email.size() <= 128;
+      // Master admin email can NEVER be deleted
+      allow delete: if isMasterAdmin() && userEmail.lower() != 'marghubalam000@gmail.com';
+    }
+
+    // User accounts / Admin profiles
+    match /users/{userId} {
+      allow read: if isAuthorizedUser();
+      allow create, update: if isAuthorizedUser() && (request.auth.uid == userId) && isValidId(userId);
+      allow delete: if false;
+    }
+
+    // Products inventory: Authenticated & Authorized whitelist access only
+    match /products/{productId} {
+      allow read: if isAuthorizedUser();
+      allow create: if isAuthorizedUser() 
+        && isValidId(productId)
+        && incoming().name is string && incoming().name.size() > 0 && incoming().name.size() <= 250
+        && incoming().sellingPrice is number && incoming().sellingPrice >= 0;
+      allow update: if isAuthorizedUser() 
+        && isValidId(productId)
+        && (!('sellingPrice' in incoming()) || (incoming().sellingPrice is number && incoming().sellingPrice >= 0));
+      allow delete: if isAuthorizedUser();
+    }
+
+    // Sales transactions / Customer invoices: Authenticated & Authorized whitelist access only
+    match /sales/{saleId} {
+      allow read: if isAuthorizedUser();
+      allow create: if isAuthorizedUser() 
+        && isValidId(saleId)
+        && incoming().invoiceNumber is string && incoming().invoiceNumber.size() > 0
+        && incoming().grandTotal is number;
+      allow update: if isAuthorizedUser() 
+        && isValidId(saleId);
+      allow delete: if isAuthorizedUser();
+    }
+
+    // Store settings (Branding, Tax rates, UPI QR IDs): Authenticated & Authorized whitelist access only
+    match /settings/{settingId} {
+      allow read: if isAuthorizedUser();
+      allow write: if isAuthorizedUser() && isValidId(settingId);
+    }
+  }
+}

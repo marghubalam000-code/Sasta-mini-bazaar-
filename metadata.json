@@ -1,0 +1,10 @@
+{
+  "name": "Sasta Mini Bazaar",
+  "description": "Sasta Mini Bazaar - POS Supermarket Billing, Barcode Scanner, Inventory & Cloud Retail Management System",
+  "requestFramePermissions": [
+    "camera"
+  ],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}

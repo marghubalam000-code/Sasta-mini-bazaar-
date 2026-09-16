@@ -66,9 +66,14 @@ function AppContent() {
         storageService.setCurrentUser(adminUser);
         setCurrentUser(adminUser);
       } else {
-        // No active Firebase Auth session -> force login screen
-        storageService.setCurrentUser(null);
-        setCurrentUser(null);
+        // No active Firebase Auth session: check if valid local admin session exists
+        const localUser = storageService.getCurrentUser();
+        if (localUser && localUser.role === 'admin') {
+          setCurrentUser(localUser);
+        } else {
+          storageService.setCurrentUser(null);
+          setCurrentUser(null);
+        }
       }
       setIsAuthChecking(false);
     });

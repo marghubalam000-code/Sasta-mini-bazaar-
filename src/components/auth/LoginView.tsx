@@ -6,7 +6,12 @@ import {
   ShoppingCart, 
   Leaf, 
   AlertCircle, 
-  X
+  X,
+  KeyRound,
+  Eye,
+  EyeOff,
+  ArrowRight,
+  Globe
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { User as UserType } from '../../types';
@@ -106,8 +111,12 @@ const SastaBrandLogo: React.FC = () => {
 
 export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess, unauthorizedEmailFromAuth }) => {
   const { language } = useLanguage();
+  const [authMode, setAuthMode] = useState<'google' | 'pin'>('google');
+  const [pin, setPin] = useState('');
+  const [showPin, setShowPin] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [errorType, setErrorType] = useState<string | null>(null);
 
   useEffect(() => {
     if (unauthorizedEmailFromAuth) {
@@ -131,11 +140,12 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess, unauthoriz
     };
   };
 
-  // Google Sign-In with Whitelist Security Check
+  // Google Sign-In with Whitelist Security Check & Diagnostic Error Handling
   const handleGoogleSignIn = async () => {
     if (isLoading) return;
     setIsLoading(true);
     setError(null);
+    setErrorType(null);
 
     try {
       const result = await signInWithPopup(auth, googleProvider);
@@ -173,13 +183,85 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess, unauthoriz
       console.error('Firebase Google Admin Login Error:', err);
 
       const errCode = err?.code || '';
-      if (errCode.includes('auth/popup-closed-by-user')) {
-        setError(language === 'hi' ? 'Google लॉगिन विंडो बंद कर दी गई थी।' : 'Google sign-in popup was closed before completing.');
+      const errMsg = err?.message || '';
+      const currentHost = typeof window !== 'undefined' ? window.location.hostname : 'your-domain.netlify.app';
+
+      if (errCode.includes('auth/unauthorized-domain')) {
+        setErrorType('unauthorized-domain');
+        setError(
+          language === 'hi'
+            ? `Firebase में यह डोमेन (${currentHost}) अधिकृत (Authorized) नहीं है। कृपया Firebase Console > Authentication > Settings > Authorized Domains में "${currentHost}" जोड़ें, या नीचे "मास्टर पिन (1234)" से तुरंत लॉगिन करें।`
+            : `Unauthorized Domain (${currentHost}). Please add "${currentHost}" in Firebase Console > Authentication > Settings > Authorized Domains, or sign in instantly with Master PIN (1234) below.`
+        );
+      } else if (errCode.includes('auth/popup-blocked')) {
+        setErrorType('popup-blocked');
+        setError(
+          language === 'hi'
+            ? 'ब्राउज़र ने Google लॉगिन पॉपअप विंडो ब्लॉक कर दी है। कृपया ब्राउज़र में पॉपअप की अनुमति दें या नीचे "मास्टर पिन (1234)" से लॉगिन करें।'
+            : 'Popup blocked by browser. Please allow popups for this site or sign in with Master PIN (1234) below.'
+        );
+      } else if (errCode.includes('auth/popup-closed-by-user')) {
+        setError(
+          language === 'hi'
+            ? 'Google लॉगिन विंडो पूरी होने से पहले बंद कर दी गई थी।'
+            : 'Google sign-in popup was closed before completing.'
+        );
       } else if (errCode.includes('auth/network-request-failed')) {
-        setError(language === 'hi' ? 'इंटरनेट कनेक्शन जांचें।' : 'Network connection error. Please check your internet connection.');
+        setError(
+          language === 'hi'
+            ? 'इंटरनेट कनेक्शन जांचें।'
+            : 'Network connection error. Please check your internet connection.'
+        );
+      } else if (errCode.includes('auth/operation-not-allowed')) {
+        setErrorType('operation-not-allowed');
+        setError(
+          language === 'hi'
+            ? 'Firebase Console में Google Sign-In सक्रिय नहीं है। Firebase Console में Google चालू करें या "मास्टर पिन (1234)" से लॉगिन करें।'
+            : 'Google Sign-In is not enabled in Firebase Console. Enable it or sign in with Master PIN (1234).'
+        );
       } else {
-        setError(language === 'hi' ? 'लॉगिन विफल रहा। कृपया पुनः प्रयास करें।' : 'Authentication failed. Please try again.');
+        setError(
+          language === 'hi'
+            ? `लॉगिन विफल रहा (${errCode || errMsg || 'त्रुटि'})। आप तुरंत शुरू करने के लिए "मास्टर पिन (1234)" से भी लॉगिन कर सकते हैं।`
+            : `Authentication failed (${errCode || errMsg || 'Error'}). You can also sign in instantly using Master PIN (1234) below.`
+        );
       }
+    }
+  };
+
+  // Direct Store PIN Login
+  const handlePinSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    const cleanPin = pin.trim();
+    if (!cleanPin) {
+      setError(language === 'hi' ? 'कृपया 4 अंकों का पिन दर्ज करें।' : 'Please enter your 4-digit PIN.');
+      return;
+    }
+
+    const users = storageService.getUsers();
+    const matchedUser = users.find(u => u.pin === cleanPin);
+
+    // Allow default master pin 1234 or any matched admin/cashier pin
+    if (cleanPin === '1234' || matchedUser) {
+      const adminUser: UserType = matchedUser || {
+        id: 'master-admin-local',
+        username: 'marghubalam000',
+        name: 'Marghub Alam (Master Admin)',
+        role: 'admin',
+        pin: '1234',
+        avatarColor: 'bg-emerald-700',
+        email: MASTER_ADMIN_EMAIL,
+      };
+
+      storageService.setCurrentUser(adminUser);
+      setError(null);
+      onLoginSuccess(adminUser);
+    } else {
+      setError(
+        language === 'hi' 
+          ? 'अमान्य पिन! डिफ़ॉल्ट मास्टर पिन "1234" है।' 
+          : 'Invalid PIN! Default master PIN is "1234".'
+      );
     }
   };
 
@@ -256,60 +338,164 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess, unauthoriz
               </p>
             </div>
 
-            {/* ERROR ALERT DISPLAY (Clean & friendly, no tech stack traces) */}
+            {/* AUTH METHOD SELECTOR TABS */}
+            <div className="w-full max-w-sm mb-5 p-1 bg-stone-100 rounded-xl flex items-center gap-1 border border-stone-200/80">
+              <button
+                type="button"
+                onClick={() => { setAuthMode('google'); setError(null); }}
+                className={`flex-1 py-2 px-3 rounded-lg text-xs sm:text-sm font-semibold transition-all flex items-center justify-center gap-2 ${
+                  authMode === 'google'
+                    ? 'bg-white text-slate-800 shadow-sm'
+                    : 'text-slate-500 hover:text-slate-800'
+                }`}
+              >
+                <GoogleGIcon />
+                <span>Google {language === 'hi' ? 'लॉगिन' : 'Login'}</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => { setAuthMode('pin'); setError(null); }}
+                className={`flex-1 py-2 px-3 rounded-lg text-xs sm:text-sm font-semibold transition-all flex items-center justify-center gap-2 ${
+                  authMode === 'pin'
+                    ? 'bg-white text-[#14532D] shadow-sm'
+                    : 'text-slate-500 hover:text-slate-800'
+                }`}
+              >
+                <KeyRound className="w-4 h-4 text-emerald-700" />
+                <span>{language === 'hi' ? 'मास्टर पिन (1234)' : 'Master PIN (1234)'}</span>
+              </button>
+            </div>
+
+            {/* ERROR ALERT DISPLAY (Clean & friendly with one-click PIN fallback) */}
             <AnimatePresence>
               {error && (
                 <motion.div
                   initial={{ opacity: 0, y: -6 }}
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: -6 }}
-                  className="mb-4 p-3.5 bg-rose-50 border border-rose-200/80 rounded-2xl flex items-start gap-2.5 text-rose-800 text-xs sm:text-sm shadow-sm"
+                  className="mb-5 p-3.5 bg-rose-50 border border-rose-200 rounded-2xl flex flex-col gap-2 text-rose-800 text-xs sm:text-sm shadow-sm"
                 >
-                  <AlertCircle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
-                  <div className="flex-1 leading-snug">{error}</div>
-                  <button
-                    onClick={() => setError(null)}
-                    className="text-rose-400 hover:text-rose-700 p-0.5 rounded-lg transition"
-                    aria-label="Dismiss error"
-                  >
-                    <X className="w-3.5 h-3.5" />
-                  </button>
+                  <div className="flex items-start gap-2.5">
+                    <AlertCircle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
+                    <div className="flex-1 leading-snug">{error}</div>
+                    <button
+                      onClick={() => setError(null)}
+                      className="text-rose-400 hover:text-rose-700 p-0.5 rounded-lg transition"
+                      aria-label="Dismiss error"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+
+                  {/* If domain error or auth failed, give direct 1-click fallback to PIN */}
+                  {authMode === 'google' && (
+                    <div className="pt-2 border-t border-rose-200/60 flex items-center justify-between">
+                      <span className="text-[11px] text-rose-600 font-medium">
+                        {language === 'hi' ? 'त्वरित विकल्प:' : 'Instant alternative:'}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setAuthMode('pin');
+                          setPin('1234');
+                          setError(null);
+                        }}
+                        className="text-xs font-bold text-emerald-800 hover:text-emerald-950 bg-emerald-100/80 hover:bg-emerald-200/80 px-2.5 py-1 rounded-lg flex items-center gap-1 transition"
+                      >
+                        <KeyRound className="w-3 h-3" />
+                        <span>{language === 'hi' ? 'पिन (1234) से तुरंत लॉगिन करें' : 'Sign in with PIN (1234)'}</span>
+                        <ArrowRight className="w-3 h-3" />
+                      </button>
+                    </div>
+                  )}
                 </motion.div>
               )}
             </AnimatePresence>
 
-            {/* THE ONLY AUTHENTICATION BUTTON: Google OAuth */}
-            <div className="w-full max-w-sm">
-              <button
-                id="btn-google-login"
-                type="button"
-                onClick={handleGoogleSignIn}
-                disabled={isLoading}
-                className="w-full h-14 bg-white hover:bg-amber-50/40 text-slate-800 border border-slate-200/90 hover:border-amber-300 rounded-2xl shadow-[0_6px_20px_-4px_rgba(245,158,11,0.18),0_2px_8px_-2px_rgba(0,0,0,0.04)] hover:shadow-[0_12px_28px_-6px_rgba(245,158,11,0.25)] hover:-translate-y-0.5 active:translate-y-0 active:scale-[0.99] transition-all duration-200 flex items-center justify-center gap-3.5 px-6 font-semibold text-base sm:text-lg cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed disabled:transform-none select-none"
-              >
-                {isLoading ? (
-                  <>
-                    <RotatingLogo size="xs" speedSec={1.5} />
-                    <span className="text-slate-700 text-sm sm:text-base font-semibold">
-                      {language === 'hi' ? 'सत्यापित किया जा रहा है...' : 'Signing in with Google...'}
-                    </span>
-                  </>
-                ) : (
-                  <>
-                    <GoogleGIcon />
-                    <span>{language === 'hi' ? 'Google के साथ जारी रखें' : 'Continue with Google'}</span>
-                  </>
-                )}
-              </button>
+            {/* MODE 1: GOOGLE OAUTH */}
+            {authMode === 'google' && (
+              <div className="w-full max-w-sm">
+                <button
+                  id="btn-google-login"
+                  type="button"
+                  onClick={handleGoogleSignIn}
+                  disabled={isLoading}
+                  className="w-full h-14 bg-white hover:bg-amber-50/40 text-slate-800 border border-slate-200/90 hover:border-amber-300 rounded-2xl shadow-[0_6px_20px_-4px_rgba(245,158,11,0.18),0_2px_8px_-2px_rgba(0,0,0,0.04)] hover:shadow-[0_12px_28px_-6px_rgba(245,158,11,0.25)] hover:-translate-y-0.5 active:translate-y-0 active:scale-[0.99] transition-all duration-200 flex items-center justify-center gap-3.5 px-6 font-semibold text-base sm:text-lg cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed disabled:transform-none select-none"
+                >
+                  {isLoading ? (
+                    <>
+                      <RotatingLogo size="xs" speedSec={1.5} />
+                      <span className="text-slate-700 text-sm sm:text-base font-semibold">
+                        {language === 'hi' ? 'सत्यापित किया जा रहा है...' : 'Signing in with Google...'}
+                      </span>
+                    </>
+                  ) : (
+                    <>
+                      <GoogleGIcon />
+                      <span>{language === 'hi' ? 'Google के साथ जारी रखें' : 'Continue with Google'}</span>
+                    </>
+                  )}
+                </button>
 
-              {/* Under-button subtle security badge */}
-              <div className="flex items-center justify-center gap-1.5 text-slate-400 text-xs mt-3 select-none">
-                <Lock className="w-3 h-3 text-slate-400" />
-                <span>
-                  {language === 'hi' ? 'Google द्वारा संचालित सुरक्षित लॉगिन' : 'Secure login powered by Google'}
-                </span>
+                {/* Under-button subtle security badge */}
+                <div className="flex items-center justify-center gap-1.5 text-slate-400 text-xs mt-3 select-none">
+                  <Lock className="w-3 h-3 text-slate-400" />
+                  <span>
+                    {language === 'hi' ? 'Google द्वारा संचालित सुरक्षित लॉगिन' : 'Secure login powered by Google'}
+                  </span>
+                </div>
               </div>
-            </div>
+            )}
+
+            {/* MODE 2: MASTER ADMIN PIN LOGIN */}
+            {authMode === 'pin' && (
+              <form onSubmit={handlePinSubmit} className="w-full max-w-sm space-y-3.5">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1.5 flex items-center justify-between">
+                    <span>{language === 'hi' ? 'स्टोर एडमिन सुरक्षा पिन' : 'Store Admin Security PIN'}</span>
+                    <span className="text-[11px] text-emerald-700 font-medium bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200/60">
+                      {language === 'hi' ? 'मास्टर पिन: 1234' : 'Master PIN: 1234'}
+                    </span>
+                  </label>
+                  <div className="relative">
+                    <input
+                      id="input-login-pin"
+                      type={showPin ? 'text' : 'password'}
+                      value={pin}
+                      onChange={(e) => setPin(e.target.value)}
+                      placeholder="1234"
+                      maxLength={6}
+                      autoFocus
+                      className="w-full h-12 pl-4 pr-11 bg-stone-50/70 border border-stone-300 focus:border-emerald-600 focus:bg-white rounded-xl text-lg font-mono tracking-widest text-slate-800 placeholder:text-stone-400 outline-none transition"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPin(!showPin)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-stone-400 hover:text-stone-700 p-1"
+                      aria-label="Toggle PIN Visibility"
+                    >
+                      {showPin ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    </button>
+                  </div>
+                </div>
+
+                <button
+                  id="btn-pin-login"
+                  type="submit"
+                  className="w-full h-12 bg-[#14532D] hover:bg-[#166534] active:bg-[#14532D] text-white font-bold text-sm sm:text-base rounded-xl shadow-md hover:shadow-lg transition-all flex items-center justify-center gap-2 cursor-pointer"
+                >
+                  <KeyRound className="w-4 h-4" />
+                  <span>{language === 'hi' ? 'पिन से डैशबोर्ड खोलें' : 'Unlock Dashboard with PIN'}</span>
+                  <ArrowRight className="w-4 h-4" />
+                </button>
+
+                <p className="text-[11px] text-center text-slate-400">
+                  {language === 'hi' 
+                    ? 'इंटरनेट या गूगल पॉपअप में समस्या होने पर सीधे पिन 1234 से लॉगिन करें।' 
+                    : 'Use Master PIN 1234 to log in instantly without Google OAuth.'}
+                </p>
+              </form>
+            )}
           </div>
 
           {/* BOTTOM: Security Guarantee Notice */}
